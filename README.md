@@ -46,11 +46,8 @@ src/main/java/tfmc/justin/
 │   └── SourceHandler.java             # Source placement, collection, reward rolls
 ├── hooks/
 │   └── WorldGuardHook.java            # Optional WorldGuard region lookups
-├── listeners/
-│   └── PlayerListener.java            # Player event hooks
 ├── managers/
-│   ├── GeigerManager.java             # Periodic player checks, component coordination
-│   └── PluginManager.java             # Plugin-wide initialization
+│   └── GeigerManager.java             # Periodic player checks, component coordination
 ├── models/
 │   ├── TierReward.java                # Reward tier: weight + item pool
 │   └── ItemReward.java                # Single reward: item path + amount

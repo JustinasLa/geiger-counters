@@ -76,10 +76,6 @@ public class SpawnLocationFilter {
         return null;
     }
 
-    public boolean isValid(Location location) {
-        return check(location) == null;
-    }
-
     // ====================================
     // Ground checks: void, liquid, and blacklisted materials
     // The source stands at <location>, so the ground is the block below it

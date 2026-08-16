@@ -6,28 +6,20 @@ import org.bstats.charts.SingleLineChart;
 import org.bukkit.plugin.java.JavaPlugin;
 import tfmc.justin.commands.GeigerCommand;
 import tfmc.justin.config.GeigerConfiguration;
-import tfmc.justin.managers.PluginManager;
 import tfmc.justin.metrics.UsageStats;
 import tfmc.justin.managers.GeigerManager;
-import tfmc.justin.listeners.PlayerListener;
 
 public class geiger_counter extends JavaPlugin {
-    
+
     private static final int BSTATS_PLUGIN_ID = 33437;
 
-    private static geiger_counter instance;
     private Metrics metrics;
 
     @Override
     public void onEnable() {
-        instance = this;
-        
         saveDefaultConfig();
-        
-        PluginManager.getInstance().initialize();
+
         GeigerManager.getInstance(this).initialize();
-        
-        getServer().getPluginManager().registerEvents(new PlayerListener(), this);
 
         GeigerCommand geigerCommand = new GeigerCommand(GeigerManager.getInstance());
         getCommand("geiger").setExecutor(geigerCommand);
@@ -80,9 +72,5 @@ public class geiger_counter extends JavaPlugin {
         if (distance <= 5000) return "2501-5000";
         return "5000+";
     }
-    
-    public static geiger_counter getInstance() {
-        return instance;
-    }
-    
+
 }

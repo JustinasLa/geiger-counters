@@ -1,15 +1,7 @@
 classDiagram
     class geiger_counter {
-        -geiger_counter instance
         +onEnable() void
         +onDisable() void
-        +getInstance() geiger_counter
-    }
-
-    class PluginManager {
-        -PluginManager instance
-        +getInstance() PluginManager
-        +initialize() void
     }
 
     class GeigerManager {
@@ -102,10 +94,6 @@ classDiagram
         -giveRewardItem(player: Player, reward: ItemReward, tierName: String) void
     }
 
-    class PlayerListener {
-        +onPlayerJoin(event: PlayerJoinEvent) void
-    }
-
     class TierReward {
         -String tierName
         -double weight
@@ -126,9 +114,7 @@ classDiagram
         +getOutputAmount() int
     }
 
-    geiger_counter "1" --> "1" PluginManager : initializes
     geiger_counter "1" --> "1" GeigerManager : initializes
-    geiger_counter "1" --> "1" PlayerListener : registers
     
     GeigerManager "1" --> "1" GeigerConfiguration : creates
     GeigerManager "1" --> "1" GeigerValidator : creates
