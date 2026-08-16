@@ -16,6 +16,37 @@ source:
     x: 1000.0
     z: 1000.0
 
+  # ====================================
+  # Rules deciding where the source is allowed to spawn
+  # A random spot is re-rolled until it passes every enabled rule
+  # ====================================
+  spawn-filters:
+    # How many spots to try before giving up and using the last one anyway.
+    # Chunks load asynchronously, so a high value costs search time (the source
+    # is briefly inactive) rather than main-thread lag.
+    max-attempts: 50
+
+    # Reject spots where the source would land on water or lava
+    # (also catches waterlogged blocks, kelp, seagrass, etc.)
+    reject-liquid: true
+
+    # Reject spots with no ground in the column (void / empty chunks)
+    reject-void: true
+
+    # Extra ground blocks the source may never spawn on
+    # Uses vanilla material names, e.g. MAGMA_BLOCK, POWDER_SNOW
+    blocked-blocks: []
+
+    # Minimum horizontal distance (blocks) from the world spawn point
+    # Set to 0 to disable
+    min-distance-from-spawn: 250.0
+
+    # WorldGuard region blacklist (ignored when WorldGuard is not installed)
+    worldguard:
+      enabled: true
+      # Region IDs the source may not spawn inside
+      blacklisted-regions: []
+
 # ====================================
 # Detection settings
 # ====================================

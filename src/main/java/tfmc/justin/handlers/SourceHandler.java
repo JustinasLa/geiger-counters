@@ -1,6 +1,7 @@
 package tfmc.justin.handlers;
 
 import me.Plugins.TLibs.Objects.API.ItemAPI;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -11,9 +12,11 @@ import tfmc.justin.config.GeigerConfiguration;
 import tfmc.justin.metrics.UsageStats;
 import tfmc.justin.models.ItemReward;
 import tfmc.justin.models.TierReward;
+import tfmc.justin.validators.SpawnLocationFilter;
 
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 
 // ====================================
 // Handles radioactive source location and collection
@@ -25,14 +28,20 @@ public class SourceHandler {
     private final JavaPlugin plugin;
     private final GeigerConfiguration config;
     private final ItemAPI api;
+    private final SpawnLocationFilter spawnFilter;
     private final Random random = new Random();
-    
+
     private Location sourceLocation;
-    
-    public SourceHandler(JavaPlugin plugin, GeigerConfiguration config, ItemAPI api) {
+
+    // Non-null while a relocation is still resolving chunk loads
+    private CompletableFuture<Location> pendingMove;
+
+    public SourceHandler(JavaPlugin plugin, GeigerConfiguration config, ItemAPI api,
+                         SpawnLocationFilter spawnFilter) {
         this.plugin = plugin;
         this.config = config;
         this.api = api;
+        this.spawnFilter = spawnFilter;
     }
     
     // ====================================
@@ -44,23 +53,128 @@ public class SourceHandler {
     
     // ====================================
     // Move source to a random location within configured bounds
+    //
+    // Candidates are rolled until one passes the spawn filters (liquid, void,
+    // blocked blocks, distance from spawn, WorldGuard regions). Every candidate
+    // needs its chunk loaded to read the terrain, so attempts run one at a time
+    // through getChunkAtAsync instead of stalling the main thread.
+    //
+    // If no candidate passes within the attempt budget the last one is used
+    // anyway, so the source always exists rather than silently disappearing.
+    //
+    // The returned future completes on the main thread with the chosen location.
     // ====================================
-    public void moveSourceToRandomLocation() {
-        double randomX = config.getMinX() + (config.getMaxX() - config.getMinX()) * random.nextDouble();
-        double randomZ = config.getMinZ() + (config.getMaxZ() - config.getMinZ()) * random.nextDouble();
-        moveSourceToLocation(randomX, randomZ);
+    public CompletableFuture<Location> moveSourceToRandomLocation() {
+        // Collapse overlapping requests onto the search already running
+        if (pendingMove != null && !pendingMove.isDone()) {
+            return pendingMove;
+        }
+
+        // Clear the source for the duration of the search so nobody collects
+        // a stale location while attempts are still resolving
+        sourceLocation = null;
+
+        CompletableFuture<Location> result = new CompletableFuture<>();
+        pendingMove = result;
+        attemptRandomPlacement(1, result);
+        return result;
+    }
+
+    private void attemptRandomPlacement(int attempt, CompletableFuture<Location> result) {
+        double x = config.getMinX() + (config.getMaxX() - config.getMinX()) * random.nextDouble();
+        double z = config.getMinZ() + (config.getMaxZ() - config.getMinZ()) * random.nextDouble();
+        int maxAttempts = config.getSpawnFilters().getMaxAttempts();
+
+        loadChunkFor(x, z).whenComplete((chunk, error) -> {
+            // Paper completes chunk futures on the main thread, so everything
+            // below is safe to run against the world directly
+            if (!plugin.isEnabled()) {
+                result.complete(null);
+                return;
+            }
+            if (error != null) {
+                plugin.getLogger().warning("Failed to load chunk for candidate source location: " + error.getMessage());
+            }
+
+            Location candidate = toSurfaceLocation(x, z);
+            SpawnLocationFilter.Rejection rejection = spawnFilter.check(candidate);
+
+            if (rejection == null) {
+                applySourceLocation(candidate, attempt);
+                result.complete(candidate);
+                return;
+            }
+
+            if (attempt >= maxAttempts) {
+                plugin.getLogger().warning(String.format(
+                    "No valid source location found after %d attempts (last rejection: %s). "
+                        + "Using the last candidate - check your source.spawn-filters settings.",
+                    maxAttempts, rejection.getDescription()));
+                applySourceLocation(candidate, attempt);
+                result.complete(candidate);
+                return;
+            }
+
+            attemptRandomPlacement(attempt + 1, result);
+        });
     }
 
     // ====================================
     // Move source to specific X/Z coordinates (Y snaps to surface)
+    // Admin-driven moves bypass the spawn filters on purpose, but a failed
+    // filter check is logged so the admin knows the spot is normally excluded
     // ====================================
-    public void moveSourceToLocation(double x, double z) {
-        double surfaceY = config.getWorld().getHighestBlockYAt((int)x, (int)z) + 1.0;
+    public CompletableFuture<Location> moveSourceToLocation(double x, double z) {
+        CompletableFuture<Location> result = new CompletableFuture<>();
+        pendingMove = result;
 
-        sourceLocation = new Location(config.getWorld(), x, surfaceY, z);
+        loadChunkFor(x, z).whenComplete((chunk, error) -> {
+            if (!plugin.isEnabled()) {
+                result.complete(null);
+                return;
+            }
+            if (error != null) {
+                plugin.getLogger().warning("Failed to load chunk for the requested source location: " + error.getMessage());
+            }
 
-        plugin.getLogger().info(String.format("Radioactive source moved to X = %.1f Z = %.1f",
-            x, z));
+            Location location = toSurfaceLocation(x, z);
+
+            SpawnLocationFilter.Rejection rejection = spawnFilter.check(location);
+            if (rejection != null) {
+                plugin.getLogger().warning(String.format(
+                    "Source manually moved to a location that fails the spawn filters (%s).",
+                    rejection.getDescription()));
+            }
+
+            applySourceLocation(location, 1);
+            result.complete(location);
+        });
+
+        return result;
+    }
+
+    // Loads (generating if needed) the chunk containing the given block coords
+    private CompletableFuture<Chunk> loadChunkFor(double x, double z) {
+        return config.getWorld().getChunkAtAsync(blockCoord(x) >> 4, blockCoord(z) >> 4, true);
+    }
+
+    // Y snaps to one block above the highest block in the column
+    private Location toSurfaceLocation(double x, double z) {
+        double surfaceY = config.getWorld().getHighestBlockYAt(blockCoord(x), blockCoord(z)) + 1.0;
+        return new Location(config.getWorld(), x, surfaceY, z);
+    }
+
+    // floor, not truncation - casting rounds toward zero and lands one block
+    // off for negative coordinates
+    private static int blockCoord(double value) {
+        return (int) Math.floor(value);
+    }
+
+    private void applySourceLocation(Location location, int attempts) {
+        sourceLocation = location;
+
+        plugin.getLogger().info(String.format("Radioactive source moved to X = %.1f Z = %.1f (%d attempt%s)",
+            location.getX(), location.getZ(), attempts, attempts == 1 ? "" : "s"));
     }
 
     // ====================================
@@ -68,6 +182,12 @@ public class SourceHandler {
     // ====================================
     public void tryCollectSource(Player player, double distance, EquipmentSlot geigerSlot) {
         if (distance > config.getCollectionDistance()) {
+            return;
+        }
+
+        // The source is already being relocated - the caller is working from a
+        // location that no longer counts, so don't hand out a second reward
+        if (sourceLocation == null) {
             return;
         }
 

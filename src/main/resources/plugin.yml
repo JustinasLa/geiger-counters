@@ -4,6 +4,7 @@ name: geiger_counter
 author: Justin
 api-version: 1.21
 depend: [TLibs]
+softdepend: [WorldGuard]
 commands:
   geiger:
     description: Geiger Counter admin commands

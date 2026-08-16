@@ -12,6 +12,7 @@ import tfmc.justin.config.GeigerConfiguration;
 import tfmc.justin.handlers.ParticleRenderer;
 import tfmc.justin.handlers.SourceHandler;
 import tfmc.justin.validators.GeigerValidator;
+import tfmc.justin.validators.SpawnLocationFilter;
 
 // ====================================
 // Main manager for the Geiger Counter system
@@ -27,6 +28,7 @@ public class GeigerManager {
     // ===== COMPONENTS =====
     private GeigerConfiguration configuration;
     private GeigerValidator validator;
+    private SpawnLocationFilter spawnFilter;
     private ParticleRenderer particleRenderer;
     private SourceHandler sourceHandler;
     private ItemAPI api;
@@ -61,7 +63,9 @@ public class GeigerManager {
         
         particleRenderer = new ParticleRenderer(configuration);
         
-        sourceHandler = new SourceHandler(plugin, configuration, api);
+        spawnFilter = new SpawnLocationFilter(plugin, configuration);
+
+        sourceHandler = new SourceHandler(plugin, configuration, api, spawnFilter);
         
         // Spawn initial source
         sourceHandler.moveSourceToRandomLocation();

@@ -44,6 +44,8 @@ src/main/java/tfmc/justin/
 ├── handlers/
 │   ├── ParticleRenderer.java          # Distance → ring count + color gradient rendering
 │   └── SourceHandler.java             # Source placement, collection, reward rolls
+├── hooks/
+│   └── WorldGuardHook.java            # Optional WorldGuard region lookups
 ├── listeners/
 │   └── PlayerListener.java            # Player event hooks
 ├── managers/
@@ -55,7 +57,8 @@ src/main/java/tfmc/justin/
 ├── utils/
 │   └── Utils.java                     # Shared helpers
 └── validators/
-    └── GeigerValidator.java           # Is this item a Geiger Counter? (TLibs paths)
+    ├── GeigerValidator.java           # Is this item a Geiger Counter? (TLibs paths)
+    └── SpawnLocationFilter.java       # Is this a legal spot for the source?
 ```
 
 ```mermaid
@@ -125,6 +128,7 @@ classDiagram
 | [TLibs](https://www.spigotmc.org/resources/tlibs.127713/) | Yes |
 | [MMOItems](https://www.spigotmc.org/resources/mmoitems-premium.39267/) | Optional |
 | [ItemsAdder](https://itemsadder.com/) | Optional |
+| [WorldGuard](https://enginehub.org/worldguard) 7.0+ | Optional — needed only for the region blacklist |
 
 ## Usage
 
@@ -156,6 +160,15 @@ source:
   bottom-right:           # Search area corner 2
     x: 1000.0
     z: 1000.0
+  spawn-filters:                    # Where the source may NOT spawn
+    max-attempts: 50                # Re-rolls (async chunk loads) before falling back
+    reject-liquid: true             # No water / lava / waterlogged ground
+    reject-void: true               # No empty columns
+    blocked-blocks: []              # Extra banned ground materials, e.g. MAGMA_BLOCK
+    min-distance-from-spawn: 250.0  # Horizontal blocks from world spawn (0 = off)
+    worldguard:
+      enabled: true
+      blacklisted-regions: []       # Region IDs the source may not spawn inside
 
 # Detection settings
 detection:

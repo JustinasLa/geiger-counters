@@ -50,7 +50,7 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
     private void handleLocate(CommandSender sender) {
         Location source = manager.getSourceHandler().getSourceLocation();
         if (source == null) {
-            sender.sendMessage("§cNo active radioactive source.");
+            sender.sendMessage("§cNo active radioactive source - it is being relocated right now.");
             return;
         }
 
@@ -62,8 +62,9 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
     // /geiger move <x> <z> -> specific coordinates
     private void handleMove(CommandSender sender, String[] args) {
         if (args.length == 1) {
-            manager.getSourceHandler().moveSourceToRandomLocation();
-            sendNewLocation(sender);
+            sender.sendMessage("§7Searching for a new source location...");
+            manager.getSourceHandler().moveSourceToRandomLocation()
+                .thenAccept(location -> sendNewLocation(sender, location));
             return;
         }
 
@@ -82,12 +83,17 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        manager.getSourceHandler().moveSourceToLocation(x, z);
-        sendNewLocation(sender);
+        manager.getSourceHandler().moveSourceToLocation(x, z)
+            .thenAccept(location -> sendNewLocation(sender, location));
     }
 
-    private void sendNewLocation(CommandSender sender) {
-        Location source = manager.getSourceHandler().getSourceLocation();
+    // Called once the chunk load behind the move has resolved
+    private void sendNewLocation(CommandSender sender, Location source) {
+        if (source == null) {
+            sender.sendMessage("§cThe source could not be moved.");
+            return;
+        }
+
         sender.sendMessage(String.format("§aRadioactive source moved to X = %.1f Z = %.1f",
             source.getX(), source.getZ()));
     }

@@ -1,6 +1,7 @@
 package tfmc.justin.config;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -9,7 +10,10 @@ import tfmc.justin.models.TierReward;
 import tfmc.justin.utils.Utils;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 // ====================================
 // Handles loading and storing all Geiger Counter configuration
@@ -21,7 +25,10 @@ public class GeigerConfiguration {
     // World settings
     private World world;
     private double minX, maxX, minZ, maxZ;
-    
+
+    // Spawn location filters
+    private SpawnFilterConfig spawnFilters = new SpawnFilterConfig();
+
     // Detection settings
     private double collectionDistance;
     private double maxDetectionDistance;
@@ -52,6 +59,7 @@ public class GeigerConfiguration {
     public void load() {
         loadWorld();
         loadSearchArea();
+        loadSpawnFilters();
         loadDetectionSettings();
         loadColorSettings();
         loadMessages();
@@ -82,6 +90,35 @@ public class GeigerConfiguration {
         }
     }
     
+    // ====================================
+    // Load the rules that decide where the source is allowed to spawn
+    // ====================================
+    private void loadSpawnFilters() {
+        String base = "source.spawn-filters.";
+        SpawnFilterConfig filters = new SpawnFilterConfig();
+
+        filters.maxAttempts = Math.max(1, plugin.getConfig().getInt(base + "max-attempts", 50));
+        filters.rejectLiquid = plugin.getConfig().getBoolean(base + "reject-liquid", true);
+        filters.rejectVoid = plugin.getConfig().getBoolean(base + "reject-void", true);
+        filters.minDistanceFromSpawn = plugin.getConfig().getDouble(base + "min-distance-from-spawn", 0.0);
+
+        for (String name : plugin.getConfig().getStringList(base + "blocked-blocks")) {
+            Material material = Material.matchMaterial(name);
+            if (material == null) {
+                plugin.getLogger().warning("Unknown material in spawn-filters.blocked-blocks: " + name);
+                continue;
+            }
+            filters.blockedBlocks.add(material);
+        }
+
+        filters.worldGuardEnabled = plugin.getConfig().getBoolean(base + "worldguard.enabled", true);
+        for (String region : plugin.getConfig().getStringList(base + "worldguard.blacklisted-regions")) {
+            filters.blacklistedRegions.add(region.toLowerCase());
+        }
+
+        spawnFilters = filters;
+    }
+
     private void loadDetectionSettings() {
         collectionDistance = plugin.getConfig().getDouble("detection.collection-distance", 20.0);
         maxDetectionDistance = plugin.getConfig().getDouble("detection.max-detection-distance", 2500.0);
@@ -195,6 +232,7 @@ public class GeigerConfiguration {
     public double getMaxX() { return maxX; }
     public double getMinZ() { return minZ; }
     public double getMaxZ() { return maxZ; }
+    public SpawnFilterConfig getSpawnFilters() { return spawnFilters; }
     public double getCollectionDistance() { return collectionDistance; }
     public double getMaxDetectionDistance() { return maxDetectionDistance; }
     public double getCloseRangeThreshold() { return closeRangeThreshold; }
@@ -208,6 +246,25 @@ public class GeigerConfiguration {
     public ColorConfig getFarRangeEndColor() { return farRangeEndColor; }
     public List<TierReward> getTierRewards() { return tierRewards; }
 
+
+    // =========== Rules for valid source spawn locations ================
+    public static class SpawnFilterConfig {
+        private int maxAttempts = 50;
+        private boolean rejectLiquid = true;
+        private boolean rejectVoid = true;
+        private double minDistanceFromSpawn = 0.0;
+        private final Set<Material> blockedBlocks = EnumSet.noneOf(Material.class);
+        private boolean worldGuardEnabled = true;
+        private final Set<String> blacklistedRegions = new HashSet<>();
+
+        public int getMaxAttempts() { return maxAttempts; }
+        public boolean isRejectLiquid() { return rejectLiquid; }
+        public boolean isRejectVoid() { return rejectVoid; }
+        public double getMinDistanceFromSpawn() { return minDistanceFromSpawn; }
+        public Set<Material> getBlockedBlocks() { return blockedBlocks; }
+        public boolean isWorldGuardEnabled() { return worldGuardEnabled; }
+        public Set<String> getBlacklistedRegions() { return blacklistedRegions; }
+    }
 
     // =========== Store RGB color values ================
     public static class ColorConfig {
