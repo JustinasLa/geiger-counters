@@ -8,6 +8,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import tfmc.justin.config.GeigerConfiguration;
+import tfmc.justin.metrics.UsageStats;
 import tfmc.justin.models.ItemReward;
 import tfmc.justin.models.TierReward;
 
@@ -74,6 +75,7 @@ public class SourceHandler {
     }
 
     private void collectSource(Player player, EquipmentSlot geigerSlot) {
+        UsageStats.getInstance().recordSourceCollected();
         moveSourceToRandomLocation();
         notifyPlayerOfCollection(player);
         replaceGeigerWithDeadVersion(player, geigerSlot);

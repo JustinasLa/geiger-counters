@@ -7,6 +7,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import tfmc.justin.commands.GeigerCommand;
 import tfmc.justin.config.GeigerConfiguration;
 import tfmc.justin.managers.PluginManager;
+import tfmc.justin.metrics.UsageStats;
 import tfmc.justin.managers.GeigerManager;
 import tfmc.justin.listeners.PlayerListener;
 
@@ -57,6 +58,11 @@ public class geiger_counter extends JavaPlugin {
 
         metrics.addCustomChart(new SimplePie("max_detection_distance",
             () -> bucketDistance(GeigerManager.getInstance().getConfiguration().getMaxDetectionDistance())));
+
+        // Counter is drained per submission, so the value is the delta
+        // for that 30-minute interval
+        metrics.addCustomChart(new SingleLineChart("sources_collected",
+            () -> UsageStats.getInstance().drainSourcesCollected()));
 
         metrics.addCustomChart(new SingleLineChart("search_area_size",
             () -> {
