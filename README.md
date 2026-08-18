@@ -184,7 +184,7 @@ classDiagram
 ```yaml
 # Source location settings
 source:
-  world: TFMC_S2          # World where source spawns
+  world: world            # World where source spawns
   top-left:               # Search area corner 1
     x: -1000.0
     z: -1000.0

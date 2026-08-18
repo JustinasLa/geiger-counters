@@ -1,9 +1,14 @@
+# Config version - do not edit.
+# The plugin uses it to add newly introduced keys on upgrade; your own values
+# are kept, and the previous file is backed up as config-v<n>.yml.bak first.
+config-version: 2
+
 # ====================================
 # Source location settings
 # ====================================
 source:
   # World name where the radioactive source spawns
-  world: TFMC_S2
+  world: world
   
   # Define the search area using two corners
   # Top-left corner (smaller X, smaller Z)
