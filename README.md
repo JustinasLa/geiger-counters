@@ -72,6 +72,7 @@ src/main/java/tfmc/justin/
 ├── geiger_counter.java                # Entry point: wiring, lifecycle
 ├── config/
 │   ├── ConfigMigrator.java            # Adds new keys to existing configs, splits out messages.yml
+│   ├── Messages.java                   # messages.yml lookup + placeholder filling
 │   └── GeigerConfiguration.java       # config.yml loading: area, ranges, colors, rewards
 ├── handlers/
 │   ├── GeigerClickPlayer.java         # Distance → click rate, rolled per tick
@@ -256,15 +257,27 @@ drops:
 
 ```
 
-Player-facing text lives in a separate **`messages.yml`**:
+All chat text lives in a separate **`messages.yml`**, split into what players see and what only `/geiger` operators see:
 
 ```yaml
-found-source: "&#AA00FFYou have found the source of Arcane Radiation! &#FFFF00The source has moved."
-dead-geiger: "&7Your Arcane Trace Detector has run out of fuel."
-limit-reached: "&cYou have already collected %max% sources in %window%. Try again in %time%."
+# PLAYER - seen by anyone hunting the source
+player:
+  found-source: "&#AA00FFYou have found the source of Arcane Radiation! ..."
+  dead-geiger: "&7Your Arcane Trace Detector has run out of fuel."
+  limit-reached: "&cYou have already collected %max% sources in %window%. Try again in %time%."
+
+# ADMIN - only ever seen by whoever runs /geiger
+admin:
+  usage: "&eUsage: /geiger <locate|move [x z]|...>"
+  source-located: "&aRadioactive source is at X = %x% Z = %z% (world: %world%)"
+  move-success: "&aRadioactive source moved to X = %x% Z = %z%"
+  limits-status: "&a%player% has %remaining%/%max% drops left per %window%."
+  # ... 12 more, each documenting its own placeholders
 ```
 
-Upgrading from a version that kept messages in `config.yml`? They are moved across on first startup, customisations included, and the old section is deleted. `config-version` in `config.yml` tracks which migrations have run.
+Console log lines stay hardcoded in English, so logs and bug reports remain readable whatever this file is translated to.
+
+Upgrading? Messages are migrated automatically — out of `config.yml` and into the `player:`/`admin:` split, customisations preserved. `config-version` in `config.yml` tracks which migrations have run.
 
 **Item path formats**
 

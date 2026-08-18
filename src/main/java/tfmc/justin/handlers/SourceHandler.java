@@ -227,12 +227,11 @@ public class SourceHandler {
         lastLimitMessage.put(player.getUniqueId(), now);
 
         long waitMillis = dropLimits.getMillisUntilNextDrop(player.getUniqueId());
-        String message = config.getMessageLimitReached()
-            .replace("%max%", String.valueOf(config.getLimitDrops()))
-            .replace("%window%", Utils.formatDuration(config.getLimitWindowMillis()))
-            .replace("%time%", Utils.formatDuration(waitMillis));
 
-        player.sendMessage(message);
+        player.sendMessage(config.getMessages().get("player.limit-reached",
+            "%max%", config.getLimitDrops(),
+            "%window%", Utils.formatDuration(config.getLimitWindowMillis()),
+            "%time%", Utils.formatDuration(waitMillis)));
     }
 
     private void collectSource(Player player, EquipmentSlot geigerSlot) {
@@ -245,7 +244,7 @@ public class SourceHandler {
     }
 
     private void notifyPlayerOfCollection(Player player) {
-        player.sendMessage(config.getMessageFoundSource());
+        player.sendMessage(config.getMessages().get("player.found-source"));
     }
 
     private void replaceGeigerWithDeadVersion(Player player, EquipmentSlot geigerSlot) {
@@ -261,7 +260,7 @@ public class SourceHandler {
             ItemStack deadGeiger = api.getCreator().getItemFromPath(DEAD_GEIGER_PATH).clone();
             player.getInventory().addItem(deadGeiger);
             player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1f, 1f);
-            player.sendMessage(config.getMessageDeadGeiger());
+            player.sendMessage(config.getMessages().get("player.dead-geiger"));
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to give dead Geiger Counter to " + player.getName() + ": " + e.getMessage());
         }

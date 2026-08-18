@@ -9,6 +9,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import tfmc.justin.config.GeigerConfiguration;
+import tfmc.justin.config.Messages;
 import tfmc.justin.managers.GeigerManager;
 import tfmc.justin.utils.Utils;
 
@@ -27,6 +28,11 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
 
     public GeigerCommand(GeigerManager manager) {
         this.manager = manager;
+    }
+
+    // Fetched per use rather than cached - /geiger reload swaps the file
+    private Messages messages() {
+        return manager.getConfiguration().getMessages();
     }
 
     @Override
@@ -64,26 +70,28 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
     private void handleLocate(CommandSender sender) {
         Location source = manager.getSourceHandler().getSourceLocation();
         if (source == null) {
-            sender.sendMessage("§cNo active radioactive source - it is being relocated right now.");
+            sender.sendMessage(messages().get("admin.source-relocating"));
             return;
         }
 
-        sender.sendMessage(String.format("§aRadioactive source is at X = %.1f Z = %.1f (world: %s)",
-            source.getX(), source.getZ(), source.getWorld().getName()));
+        sender.sendMessage(messages().get("admin.source-located",
+            "%x%", Messages.coordinate(source.getX()),
+            "%z%", Messages.coordinate(source.getZ()),
+            "%world%", source.getWorld().getName()));
     }
 
     // /geiger move       -> random location
     // /geiger move <x> <z> -> specific coordinates
     private void handleMove(CommandSender sender, String[] args) {
         if (args.length == 1) {
-            sender.sendMessage("§7Searching for a new source location...");
+            sender.sendMessage(messages().get("admin.move-searching"));
             manager.getSourceHandler().moveSourceToRandomLocation()
                 .thenAccept(location -> sendNewLocation(sender, location));
             return;
         }
 
         if (args.length != 3) {
-            sender.sendMessage("§cUsage: /geiger move [x z]");
+            sender.sendMessage(messages().get("admin.move-usage"));
             return;
         }
 
@@ -93,7 +101,7 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
             x = Double.parseDouble(args[1]);
             z = Double.parseDouble(args[2]);
         } catch (NumberFormatException e) {
-            sender.sendMessage("§cCoordinates must be numbers. Usage: /geiger move [x z]");
+            sender.sendMessage(messages().get("admin.move-invalid-coords"));
             return;
         }
 
@@ -104,23 +112,24 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
     // Called once the chunk load behind the move has resolved
     private void sendNewLocation(CommandSender sender, Location source) {
         if (source == null) {
-            sender.sendMessage("§cThe source could not be moved.");
+            sender.sendMessage(messages().get("admin.move-failed"));
             return;
         }
 
-        sender.sendMessage(String.format("§aRadioactive source moved to X = %.1f Z = %.1f",
-            source.getX(), source.getZ()));
+        sender.sendMessage(messages().get("admin.move-success",
+            "%x%", Messages.coordinate(source.getX()),
+            "%z%", Messages.coordinate(source.getZ())));
     }
 
     // /geiger limits <player> -> how many collections that player has left
     private void handleLimits(CommandSender sender, String[] args) {
         if (args.length != 2) {
-            sender.sendMessage("§cUsage: /geiger limits <player>");
+            sender.sendMessage(messages().get("admin.limits-usage"));
             return;
         }
 
         if (!manager.getConfiguration().isLimitEnabled()) {
-            sender.sendMessage("§7Drop limits are disabled in the config.");
+            sender.sendMessage(messages().get("admin.limits-disabled"));
             return;
         }
 
@@ -133,19 +142,23 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
         int max = manager.getConfiguration().getLimitDrops();
         String window = Utils.formatDuration(manager.getConfiguration().getLimitWindowMillis());
 
-        sender.sendMessage(String.format("§a%s has %d/%d drops left per %s.",
-            args[1], remaining, max, window));
+        sender.sendMessage(messages().get("admin.limits-status",
+            "%player%", args[1],
+            "%remaining%", remaining,
+            "%max%", max,
+            "%window%", window));
 
         if (remaining == 0) {
             long wait = manager.getDropLimitManager().getMillisUntilNextDrop(target.getUniqueId());
-            sender.sendMessage("§7Next drop available in " + Utils.formatDuration(wait) + ".");
+            sender.sendMessage(messages().get("admin.limits-next-drop",
+                "%time%", Utils.formatDuration(wait)));
         }
     }
 
     // /geiger resetlimits <player> -> clear that player's collection history
     private void handleResetLimits(CommandSender sender, String[] args) {
         if (args.length != 2) {
-            sender.sendMessage("§cUsage: /geiger resetlimits <player>");
+            sender.sendMessage(messages().get("admin.resetlimits-usage"));
             return;
         }
 
@@ -155,7 +168,7 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
         }
 
         manager.getDropLimitManager().reset(target.getUniqueId());
-        sender.sendMessage("§aDrop limit reset for " + args[1] + ".");
+        sender.sendMessage(messages().get("admin.resetlimits-success", "%player%", args[1]));
     }
 
     // Offline lookup so limits can be inspected while the player is away
@@ -163,7 +176,7 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
     private OfflinePlayer resolvePlayer(CommandSender sender, String name) {
         OfflinePlayer target = Bukkit.getOfflinePlayer(name);
         if (!target.hasPlayedBefore() && !target.isOnline()) {
-            sender.sendMessage("§cUnknown player: " + name);
+            sender.sendMessage(messages().get("admin.unknown-player", "%player%", name));
             return null;
         }
         return target;
@@ -171,11 +184,11 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
 
     private void handleReload(CommandSender sender) {
         manager.reload();
-        sender.sendMessage("§aGeiger Counter configuration reloaded.");
+        sender.sendMessage(messages().get("admin.reloaded"));
     }
 
     private void sendUsage(CommandSender sender) {
-        sender.sendMessage("§eUsage: /geiger <locate|move [x z]|limits <player>|resetlimits <player>|reload>");
+        sender.sendMessage(messages().get("admin.usage"));
     }
 
     // ====================================

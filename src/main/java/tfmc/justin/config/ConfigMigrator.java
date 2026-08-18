@@ -34,11 +34,15 @@ public class ConfigMigrator {
     // Bump when config.yml gains keys that existing installs should receive
     // v2: sound + limits sections
     // v3: messages moved out to messages.yml
-    public static final int CURRENT_VERSION = 3;
+    // v4: messages.yml split into player/admin sections
+    public static final int CURRENT_VERSION = 4;
 
     public static final String MESSAGES_FILE = "messages.yml";
 
     private static final String MESSAGES_SECTION = "messages";
+
+    // Keys that sat at the root of messages.yml before the player/admin split
+    private static final String[] LEGACY_ROOT_MESSAGES = {"found-source", "dead-geiger", "limit-reached"};
 
     public static final String VERSION_PATH = "config-version";
 
@@ -118,7 +122,8 @@ public class ConfigMigrator {
 
         boolean changed = false;
 
-        // Lift anything the admin wrote in the old config.yml section
+        // Lift anything the admin wrote in the old config.yml section.
+        // Those keys were flat, so they land at the root and get nested below.
         FileConfiguration live = plugin.getConfig();
         ConfigurationSection oldSection = live.getConfigurationSection(MESSAGES_SECTION);
         if (oldSection != null) {
@@ -137,6 +142,24 @@ public class ConfigMigrator {
 
             plugin.getLogger().info("Moved " + moved.size() + " message(s) from config.yml to " + MESSAGES_FILE
                 + ": " + String.join(", ", moved));
+        }
+
+        // Old layout kept these three at the root; they now live under player.
+        // Done before the default merge, or the merge would write shipped text
+        // to player.* while the admin's wording sat orphaned at the root.
+        for (String key : LEGACY_ROOT_MESSAGES) {
+            if (!messages.contains(key, true)) {
+                continue;
+            }
+
+            String nested = "player." + key;
+            if (!messages.contains(nested, true)) {
+                messages.set(nested, messages.get(key));
+                plugin.getLogger().info("Moved message '" + key + "' under player. in " + MESSAGES_FILE + ".");
+            }
+
+            messages.set(key, null);
+            changed = true;
         }
 
         // Fill in messages added by later versions

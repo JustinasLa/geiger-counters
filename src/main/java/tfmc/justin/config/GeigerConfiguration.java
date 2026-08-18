@@ -70,10 +70,8 @@ public class GeigerConfiguration {
     private int limitDrops;
     private long limitWindowMillis;
 
-    // Messages
-    private String messageFoundSource;
-    private String messageDeadGeiger;
-    private String messageLimitReached;
+    // Messages (messages.yml, not config.yml)
+    private Messages messages;
     
     // Colors
     private ColorConfig closeRangeStartColor;
@@ -242,13 +240,16 @@ public class GeigerConfiguration {
         }
     }
 
+    // ====================================
+    // Text lives in messages.yml - re-read from disk on every load so
+    // /geiger reload picks up edits without a restart
+    // ====================================
     private void loadMessages() {
-        messageFoundSource = Utils.colorize(plugin.getConfig().getString("messages.found-source", 
-            "&5You have found the source of Arcane Radiation! The source has moved."));
-        messageDeadGeiger = Utils.colorize(plugin.getConfig().getString("messages.dead-geiger", 
-            "&7Your Arcane Trace Detector has run out of fuel."));
-        messageLimitReached = Utils.colorize(plugin.getConfig().getString("messages.limit-reached",
-            "&cYou have already collected %max% sources. Try again in %time%."));
+        if (messages == null) {
+            messages = new Messages(plugin);
+        } else {
+            messages.reload();
+        }
     }
     
     // =========== Color Settings ======================
@@ -355,9 +356,7 @@ public class GeigerConfiguration {
     public double getCloseRangeThreshold() { return closeRangeThreshold; }
     public double getThreeRingsDistance() { return threeRingsDistance; }
     public double getTwoRingsDistance() { return twoRingsDistance; }
-    public String getMessageFoundSource() { return messageFoundSource; }
-    public String getMessageDeadGeiger() { return messageDeadGeiger; }
-    public String getMessageLimitReached() { return messageLimitReached; }
+    public Messages getMessages() { return messages; }
     public boolean isSoundEnabled() { return soundEnabled; }
     public String getSoundName() { return soundName; }
     public double getSoundVolume() { return soundVolume; }
