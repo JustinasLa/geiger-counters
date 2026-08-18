@@ -1,5 +1,5 @@
 main: tfmc.justin.geiger_counter
-version: 1.1.1
+version: 1.1.2
 name: geiger_counter
 author: Justin
 api-version: 1.21
@@ -8,9 +8,12 @@ softdepend: [WorldGuard]
 commands:
   geiger:
     description: Geiger Counter admin commands
-    usage: /geiger <locate|move [x z]|reload>
+    usage: /geiger <locate|move [x z]|limits <player>|resetlimits <player>|reload>
     permission: geiger.admin
 permissions:
   geiger.admin:
     description: Access to Geiger Counter admin commands
+    default: op
+  geiger.limit.bypass:
+    description: Exempt from the per-player drop limit
     default: op

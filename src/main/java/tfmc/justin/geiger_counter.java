@@ -32,6 +32,9 @@ public class geiger_counter extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (GeigerManager.getInstance() != null) {
+            GeigerManager.getInstance().shutdown();
+        }
         if (metrics != null) {
             metrics.shutdown();
         }

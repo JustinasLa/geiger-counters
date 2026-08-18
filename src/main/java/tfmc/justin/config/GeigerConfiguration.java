@@ -14,6 +14,7 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 // ====================================
 // Handles loading and storing all Geiger Counter configuration
@@ -36,9 +37,15 @@ public class GeigerConfiguration {
     private double threeRingsDistance;
     private double twoRingsDistance;
     
+    // Drop limits
+    private boolean limitEnabled;
+    private int limitDrops;
+    private long limitWindowMillis;
+
     // Messages
     private String messageFoundSource;
     private String messageDeadGeiger;
+    private String messageLimitReached;
     
     // Colors
     private ColorConfig closeRangeStartColor;
@@ -61,6 +68,7 @@ public class GeigerConfiguration {
         loadSearchArea();
         loadSpawnFilters();
         loadDetectionSettings();
+        loadDropLimits();
         loadColorSettings();
         loadMessages();
         loadRewards();
@@ -127,11 +135,35 @@ public class GeigerConfiguration {
         twoRingsDistance = plugin.getConfig().getDouble("detection.ring-thresholds.two-rings", 300.0);
     }
     
+    // ====================================
+    // How many sources a single player may collect per time window
+    // ====================================
+    private void loadDropLimits() {
+        limitEnabled = plugin.getConfig().getBoolean("limits.enabled", true);
+        limitDrops = plugin.getConfig().getInt("limits.drops", 3);
+
+        String rawTime = plugin.getConfig().getString("limits.time", "12h");
+        limitWindowMillis = Utils.parseDurationMillis(rawTime);
+        if (limitWindowMillis <= 0) {
+            plugin.getLogger().warning("Invalid limits.time value '" + rawTime + "' - expected something like 30s, 45m, 12h or 1d. Falling back to 12h.");
+            limitWindowMillis = TimeUnit.HOURS.toMillis(12);
+        }
+
+        // A non-positive drop count would lock everyone out permanently, which
+        // is never what an admin means - they mean "turn the limit off"
+        if (limitEnabled && limitDrops <= 0) {
+            plugin.getLogger().warning("limits.drops must be at least 1 - disabling the drop limit. Set limits.enabled to false to silence this.");
+            limitEnabled = false;
+        }
+    }
+
     private void loadMessages() {
         messageFoundSource = Utils.colorize(plugin.getConfig().getString("messages.found-source", 
             "&5You have found the source of Arcane Radiation! The source has moved."));
         messageDeadGeiger = Utils.colorize(plugin.getConfig().getString("messages.dead-geiger", 
             "&7Your Arcane Trace Detector has run out of fuel."));
+        messageLimitReached = Utils.colorize(plugin.getConfig().getString("messages.limit-reached",
+            "&cYou have already collected %max% sources. Try again in %time%."));
     }
     
     // =========== Color Settings ======================
@@ -240,6 +272,10 @@ public class GeigerConfiguration {
     public double getTwoRingsDistance() { return twoRingsDistance; }
     public String getMessageFoundSource() { return messageFoundSource; }
     public String getMessageDeadGeiger() { return messageDeadGeiger; }
+    public String getMessageLimitReached() { return messageLimitReached; }
+    public boolean isLimitEnabled() { return limitEnabled; }
+    public int getLimitDrops() { return limitDrops; }
+    public long getLimitWindowMillis() { return limitWindowMillis; }
     public ColorConfig getCloseRangeStartColor() { return closeRangeStartColor; }
     public ColorConfig getCloseRangeEndColor() { return closeRangeEndColor; }
     public ColorConfig getFarRangeStartColor() { return farRangeStartColor; }

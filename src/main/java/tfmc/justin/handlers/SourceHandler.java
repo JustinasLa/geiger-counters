@@ -9,13 +9,18 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import tfmc.justin.config.GeigerConfiguration;
+import tfmc.justin.managers.DropLimitManager;
 import tfmc.justin.metrics.UsageStats;
 import tfmc.justin.models.ItemReward;
 import tfmc.justin.models.TierReward;
+import tfmc.justin.utils.Utils;
 import tfmc.justin.validators.SpawnLocationFilter;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 // ====================================
@@ -24,12 +29,20 @@ import java.util.concurrent.CompletableFuture;
 public class SourceHandler {
     
     private static final String DEAD_GEIGER_PATH = "m.TOOLS.DEAD_GEIGER_COUNTER";
+
+    // Collection is checked every few ticks, so the limit message needs its own
+    // cooldown or a player standing on the source would be spammed
+    private static final long LIMIT_MESSAGE_COOLDOWN_MILLIS = 15_000L;
     
     private final JavaPlugin plugin;
     private final GeigerConfiguration config;
     private final ItemAPI api;
     private final SpawnLocationFilter spawnFilter;
+    private final DropLimitManager dropLimits;
     private final Random random = new Random();
+
+    // Last time each player was told they are rate limited
+    private final Map<UUID, Long> lastLimitMessage = new HashMap<>();
 
     private Location sourceLocation;
 
@@ -37,11 +50,12 @@ public class SourceHandler {
     private CompletableFuture<Location> pendingMove;
 
     public SourceHandler(JavaPlugin plugin, GeigerConfiguration config, ItemAPI api,
-                         SpawnLocationFilter spawnFilter) {
+                         SpawnLocationFilter spawnFilter, DropLimitManager dropLimits) {
         this.plugin = plugin;
         this.config = config;
         this.api = api;
         this.spawnFilter = spawnFilter;
+        this.dropLimits = dropLimits;
     }
     
     // ====================================
@@ -191,10 +205,38 @@ public class SourceHandler {
             return;
         }
 
+        // Player is out of collections for this window - the source stays put
+        // so somebody else can still claim it
+        if (!dropLimits.canCollect(player)) {
+            notifyLimitReached(player);
+            return;
+        }
+
         collectSource(player, geigerSlot);
     }
 
+    // ====================================
+    // Tell the player when their next collection slot opens up
+    // ====================================
+    private void notifyLimitReached(Player player) {
+        long now = System.currentTimeMillis();
+        Long lastSent = lastLimitMessage.get(player.getUniqueId());
+        if (lastSent != null && now - lastSent < LIMIT_MESSAGE_COOLDOWN_MILLIS) {
+            return;
+        }
+        lastLimitMessage.put(player.getUniqueId(), now);
+
+        long waitMillis = dropLimits.getMillisUntilNextDrop(player.getUniqueId());
+        String message = config.getMessageLimitReached()
+            .replace("%max%", String.valueOf(config.getLimitDrops()))
+            .replace("%window%", Utils.formatDuration(config.getLimitWindowMillis()))
+            .replace("%time%", Utils.formatDuration(waitMillis));
+
+        player.sendMessage(message);
+    }
+
     private void collectSource(Player player, EquipmentSlot geigerSlot) {
+        dropLimits.recordCollection(player);
         UsageStats.getInstance().recordSourceCollected();
         moveSourceToRandomLocation();
         notifyPlayerOfCollection(player);

@@ -31,6 +31,7 @@ public class GeigerManager {
     private SpawnLocationFilter spawnFilter;
     private ParticleRenderer particleRenderer;
     private SourceHandler sourceHandler;
+    private DropLimitManager dropLimitManager;
     private ItemAPI api;
     
     // ===== INITIALIZATION =====
@@ -65,7 +66,10 @@ public class GeigerManager {
         
         spawnFilter = new SpawnLocationFilter(plugin, configuration);
 
-        sourceHandler = new SourceHandler(plugin, configuration, api, spawnFilter);
+        dropLimitManager = new DropLimitManager(plugin, configuration);
+        dropLimitManager.load();
+
+        sourceHandler = new SourceHandler(plugin, configuration, api, spawnFilter, dropLimitManager);
         
         // Spawn initial source
         sourceHandler.moveSourceToRandomLocation();
@@ -82,6 +86,19 @@ public class GeigerManager {
     public void reload() {
         plugin.reloadConfig();
         configuration.load();
+    }
+
+    // ====================================
+    // Flush per-player drop limits to disk on shutdown
+    // ====================================
+    public void shutdown() {
+        if (dropLimitManager != null) {
+            dropLimitManager.save();
+        }
+    }
+
+    public DropLimitManager getDropLimitManager() {
+        return dropLimitManager;
     }
 
     public SourceHandler getSourceHandler() {

@@ -5,7 +5,7 @@
 ![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white)
 ![Paper](https://img.shields.io/badge/Paper-1.21+-blue)
 ![Maven](https://img.shields.io/badge/Build-Maven-red?logo=apachemaven&logoColor=white)
-![Version](https://img.shields.io/badge/Version-1.1.1-green)
+![Version](https://img.shields.io/badge/Version-1.1.2-green)
 
 Built for the [TFMC](https://www.patreon.com/c/TFMCRP) roleplay server, where it runs in production as a server-wide scavenger-hunt event mechanic.
 
@@ -21,6 +21,7 @@ Hold a **Geiger Counter** item and the world starts talking back: particle rings
 | **Tiered rewards** | 6 rarity levels (Common → Mythical) with fully weighted drop chances |
 | **Self-resetting hunt** | Collecting the source relocates it to a new random spot in the search area |
 | **Consumable gameplay** | The Geiger Counter "runs out of charge" on success, becoming a **Dead Geiger Counter** |
+| **Per-player drop limits** | A player may claim at most *x* drops per *y* time window, so loot stays scarce |
 | **Config-driven design** | Search area, detection ranges, particle colors, and reward pools all live in `config.yml` |
 
 ## How It Works
@@ -31,6 +32,29 @@ A repeating task checks every online player. For each player holding a Geiger Co
 2. That distance is mapped to a particle configuration — ring count (1–3) from distance thresholds, and a color interpolated along a two-stage gradient (dark purple → purple far away, purple → white up close).
 3. The rings spawn around the player as a live "signal strength" readout.
 4. Within collection distance (20 blocks by default), the source is collected automatically: a tier is rolled by weight, a random item from that tier is granted, the counter is swapped for its dead version, and the source moves to a fresh random location.
+
+### Drop limits
+
+`limits` caps how often a single player may claim the source: `drops` collections per `time` window. The window slides — each collection frees up again exactly `time` after it happened, so `drops: 3` with `time: 12h` works out to 6 per day.
+
+Collection stamps are stored in `plugins/geiger_counter/drop-limits.yml`, so a restart cannot be used to wipe the limit. A limited player still tracks and sees the signal, but collecting does nothing: the source stays where it is, so somebody else can still claim it, and the player is told when their next slot opens.
+
+Players with `geiger.limit.bypass` are never limited.
+
+### Commands
+
+| Command | Description |
+|---|---|
+| `/geiger locate` | Print the current source coordinates |
+| `/geiger move [x z]` | Move the source to a random spot, or to specific coordinates |
+| `/geiger limits <player>` | Show the player's remaining drops and time until the next one |
+| `/geiger resetlimits <player>` | Clear the player's drop history |
+| `/geiger reload` | Reload `config.yml` |
+
+| Permission | Default | Grants |
+|---|---|---|
+| `geiger.admin` | op | Access to `/geiger` |
+| `geiger.limit.bypass` | op | Exemption from the per-player drop limit |
 
 ## Architecture
 
@@ -47,7 +71,8 @@ src/main/java/tfmc/justin/
 ├── hooks/
 │   └── WorldGuardHook.java            # Optional WorldGuard region lookups
 ├── managers/
-│   └── GeigerManager.java             # Periodic player checks, component coordination
+│   ├── GeigerManager.java             # Periodic player checks, component coordination
+│   └── DropLimitManager.java          # Per-player drop limits + on-disk history
 ├── models/
 │   ├── TierReward.java                # Reward tier: weight + item pool
 │   └── ItemReward.java                # Single reward: item path + amount
@@ -176,6 +201,12 @@ detection:
     three-rings: 100.0    # 3 rings when closer than this
     two-rings: 300.0      # 2 rings when closer than this (else 1)
 
+# Per-player drop limits
+limits:
+  enabled: true
+  drops: 3      # Max collections per window
+  time: 12h     # Window length - accepts s, m, h, d
+
 # Particle effect colors (RGB: 0-255)
 colors:
   close-range:
@@ -206,6 +237,7 @@ drops:
 messages:
   found-source: "&#AA00FFYou have found the source of Arcane Radiation! &#FFFF00The source has moved."
   dead-geiger: "&7Your Arcane Trace Detector has run out of fuel."
+  limit-reached: "&cYou have already collected %max% sources in %window%. Try again in %time%."
 ```
 
 **Item path formats**

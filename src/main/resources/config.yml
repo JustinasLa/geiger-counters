@@ -67,6 +67,23 @@ detection:
 
 
 # ====================================
+# Per-player drop limits
+# A player may collect at most <drops> sources within any <time> window.
+# The window slides: each collection frees up again exactly <time> after it
+# happened, so 3 drops per 12h works out to 6 per day.
+# Players with the geiger.limit.bypass permission are never limited.
+# ====================================
+limits:
+  enabled: true
+
+  # Max sources one player may collect per window
+  drops: 3
+
+  # Window length - accepts s, m, h, d (e.g. 30s, 45m, 12h, 1d)
+  time: 12h
+
+
+# ====================================
 # Particle effect colors (RGB format: 0-255)
 # ====================================
 colors:
@@ -214,3 +231,8 @@ messages:
   
   # Message when Geiger Counter breaks after finding source
   dead-geiger: "&7Your Arcane Trace Detector has run out of fuel."
+
+  # Message when a player hits their drop limit
+  # %max% = drops allowed per window, %window% = window length,
+  # %time% = time until their next drop frees up
+  limit-reached: "&cYou have already collected %max% sources in %window%. Try again in %time%."
