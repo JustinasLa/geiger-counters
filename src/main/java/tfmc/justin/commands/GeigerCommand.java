@@ -7,6 +7,8 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
+import tfmc.justin.config.GeigerConfiguration;
 import tfmc.justin.managers.GeigerManager;
 import tfmc.justin.utils.Utils;
 
@@ -176,6 +178,40 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§eUsage: /geiger <locate|move [x z]|limits <player>|resetlimits <player>|reload>");
     }
 
+    // ====================================
+    // Suggest coordinates worth typing: where the sender is standing, and the
+    // corners of the configured search area. Axis follows the argument -
+    // X for the first, Z for the second.
+    // ====================================
+    private List<String> completeCoordinate(CommandSender sender, String[] args) {
+        boolean isX = args.length == 2;
+        String typed = args[args.length - 1];
+
+        List<String> suggestions = new ArrayList<>();
+
+        if (sender instanceof Player) {
+            Location location = ((Player) sender).getLocation();
+            suggestions.add(String.valueOf(isX ? location.getBlockX() : location.getBlockZ()));
+        }
+
+        GeigerConfiguration config = manager.getConfiguration();
+        suggestions.add(formatCoordinate(isX ? config.getMinX() : config.getMinZ()));
+        suggestions.add(formatCoordinate(isX ? config.getMaxX() : config.getMaxZ()));
+
+        List<String> matches = new ArrayList<>();
+        for (String suggestion : suggestions) {
+            if (suggestion.startsWith(typed) && !matches.contains(suggestion)) {
+                matches.add(suggestion);
+            }
+        }
+        return matches;
+    }
+
+    // Whole blocks read better in a command than 1000.0
+    private static String formatCoordinate(double value) {
+        return String.valueOf((long) Math.floor(value));
+    }
+
     private static boolean isLimitSubcommand(String argument) {
         return argument.equalsIgnoreCase("limit") || argument.equalsIgnoreCase("limits")
             || argument.equalsIgnoreCase("resetlimit") || argument.equalsIgnoreCase("resetlimits");
@@ -193,10 +229,15 @@ public class GeigerCommand implements CommandExecutor, TabCompleter {
             return matches;
         }
 
+        // Coordinates for /geiger move <x> <z>
+        if (args[0].equalsIgnoreCase("move") && (args.length == 2 || args.length == 3)) {
+            return completeCoordinate(sender, args);
+        }
+
         // Both limit subcommands (either spelling) take a player name
         if (args.length == 2 && isLimitSubcommand(args[0])) {
             List<String> matches = new ArrayList<>();
-            for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getName().toLowerCase().startsWith(args[1].toLowerCase())) {
                     matches.add(player.getName());
                 }

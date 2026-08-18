@@ -1,0 +1,19 @@
+# ====================================
+# All player-facing text lives here.
+# Supports & color codes and hex colors (&#RRGGBB).
+#
+# Messages used to live in config.yml - if you are upgrading, your customised
+# text was moved here automatically and removed from config.yml.
+# ====================================
+
+# Shown when a player finds the radioactive source
+found-source: "&#AA00FFYou have found the source of Arcane Radiation! &#FFFF00The source has moved."
+
+# Shown when the Geiger Counter burns out after finding the source
+dead-geiger: "&7Your Arcane Trace Detector has run out of fuel."
+
+# Shown when a player has used up their drops for the current window
+# %max%    = drops allowed per window
+# %window% = window length (e.g. 12h)
+# %time%   = time until their next drop frees up
+limit-reached: "&cYou have already collected %max% sources in %window%. Try again in %time%."

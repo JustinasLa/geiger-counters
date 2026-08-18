@@ -53,7 +53,7 @@ Players with `geiger.limit.bypass` are never limited.
 | Command | Description |
 |---|---|
 | `/geiger locate` | Print the current source coordinates |
-| `/geiger move [x z]` | Move the source to a random spot, or to specific coordinates |
+| `/geiger move [x z]` | Move the source to a random spot, or to specific coordinates (coords tab-complete to your position and the area corners) |
 | `/geiger limits <player>` | Show the player's remaining drops and time until the next one |
 | `/geiger resetlimits <player>` | Clear the player's drop history |
 | `/geiger reload` | Reload `config.yml` |
@@ -71,6 +71,7 @@ Small, deliberate footprint — each class has one job:
 src/main/java/tfmc/justin/
 ├── geiger_counter.java                # Entry point: wiring, lifecycle
 ├── config/
+│   ├── ConfigMigrator.java            # Adds new keys to existing configs, splits out messages.yml
 │   └── GeigerConfiguration.java       # config.yml loading: area, ranges, colors, rewards
 ├── handlers/
 │   ├── GeigerClickPlayer.java         # Distance → click rate, rolled per tick
@@ -147,7 +148,7 @@ classDiagram
 1. Drop `geiger_counter-1.1.2.jar` into your server's `plugins/` folder
 2. Install **TLibs** (required). **MMOItems** / **ItemsAdder** are optional item sources
 3. Restart the server (or load with PlugManX)
-4. Configure `plugins/geiger_counter/config.yml` — the source spawns at a random location within the configured area
+4. Configure `plugins/geiger_counter/config.yml` and `messages.yml` — the source spawns at a random location within the configured area
 
 ### Requirements
 
@@ -253,12 +254,17 @@ drops:
       - "ia.tfmc:mythril_ingot"
     # ... (see config.yml for full reward lists)
 
-# Messages
-messages:
-  found-source: "&#AA00FFYou have found the source of Arcane Radiation! &#FFFF00The source has moved."
-  dead-geiger: "&7Your Arcane Trace Detector has run out of fuel."
-  limit-reached: "&cYou have already collected %max% sources in %window%. Try again in %time%."
 ```
+
+Player-facing text lives in a separate **`messages.yml`**:
+
+```yaml
+found-source: "&#AA00FFYou have found the source of Arcane Radiation! &#FFFF00The source has moved."
+dead-geiger: "&7Your Arcane Trace Detector has run out of fuel."
+limit-reached: "&cYou have already collected %max% sources in %window%. Try again in %time%."
+```
+
+Upgrading from a version that kept messages in `config.yml`? They are moved across on first startup, customisations included, and the old section is deleted. `config-version` in `config.yml` tracks which migrations have run.
 
 **Item path formats**
 
