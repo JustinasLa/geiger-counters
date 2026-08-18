@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.plugin.java.JavaPlugin;
 import tfmc.justin.config.GeigerConfiguration;
+import tfmc.justin.handlers.GeigerClickPlayer;
 import tfmc.justin.handlers.ParticleRenderer;
 import tfmc.justin.handlers.SourceHandler;
 import tfmc.justin.validators.GeigerValidator;
@@ -30,6 +31,7 @@ public class GeigerManager {
     private GeigerValidator validator;
     private SpawnLocationFilter spawnFilter;
     private ParticleRenderer particleRenderer;
+    private GeigerClickPlayer clickPlayer;
     private SourceHandler sourceHandler;
     private DropLimitManager dropLimitManager;
     private ItemAPI api;
@@ -63,6 +65,8 @@ public class GeigerManager {
         validator = new GeigerValidator(plugin, api);
         
         particleRenderer = new ParticleRenderer(configuration);
+
+        clickPlayer = new GeigerClickPlayer(configuration);
         
         spawnFilter = new SpawnLocationFilter(plugin, configuration);
 
@@ -76,6 +80,9 @@ public class GeigerManager {
         
         // Start player checking task
         startPlayerCheckTask();
+
+        // Clicks roll every tick so close range can crackle instead of tick
+        startClickTask();
         
         plugin.getLogger().info("Geiger Counter plugin has been enabled.");
     }
@@ -92,9 +99,16 @@ public class GeigerManager {
     // Flush per-player drop limits to disk on shutdown
     // ====================================
     public void shutdown() {
+        if (clickPlayer != null) {
+            clickPlayer.clear();
+        }
         if (dropLimitManager != null) {
             dropLimitManager.save();
         }
+    }
+
+    public GeigerClickPlayer getClickPlayer() {
+        return clickPlayer;
     }
 
     public DropLimitManager getDropLimitManager() {
@@ -111,6 +125,10 @@ public class GeigerManager {
 
     private void startPlayerCheckTask() {
         Bukkit.getScheduler().runTaskTimer(plugin, this::checkAllPlayers, 0L, CHECK_INTERVAL_TICKS);
+    }
+
+    private void startClickTask() {
+        Bukkit.getScheduler().runTaskTimer(plugin, clickPlayer::tick, 0L, 1L);
     }
     
     // ===== PLAYER CHECKING =====
@@ -148,6 +166,7 @@ public class GeigerManager {
     private void handlePlayerWithGeiger(Player player, Location source, EquipmentSlot geigerSlot) {
         double distance = calculateHorizontalDistance(player.getLocation(), source);
         particleRenderer.showParticleEffect(player, distance);
+        clickPlayer.updateRate(player, distance);
         sourceHandler.tryCollectSource(player, distance, geigerSlot);
     }
     

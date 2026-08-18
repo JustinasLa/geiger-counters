@@ -11,8 +11,10 @@ import tfmc.justin.utils.Utils;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -20,7 +22,21 @@ import java.util.concurrent.TimeUnit;
 // Handles loading and storing all Geiger Counter configuration
 // ====================================
 public class GeigerConfiguration {
-    
+
+    private static final String DEFAULT_SOUND = "block.note_block.hat";
+
+    // Bukkit enum spellings admins are likely to paste in, mapped to the event
+    // ID. Only the click-like sounds - anything else has to use the event ID.
+    private static final Map<String, String> ENUM_TO_EVENT = new HashMap<>();
+    static {
+        ENUM_TO_EVENT.put("block_note_block_hat", "block.note_block.hat");
+        ENUM_TO_EVENT.put("block_dispenser_fail", "block.dispenser.fail");
+        ENUM_TO_EVENT.put("block_comparator_click", "block.comparator.click");
+        ENUM_TO_EVENT.put("block_lever_click", "block.lever.click");
+        ENUM_TO_EVENT.put("ui_button_click", "ui.button.click");
+        ENUM_TO_EVENT.put("entity_item_pickup", "entity.item.pickup");
+    }
+
     private final JavaPlugin plugin;
     
     // World settings
@@ -37,6 +53,16 @@ public class GeigerConfiguration {
     private double threeRingsDistance;
     private double twoRingsDistance;
     
+    // Click sound
+    private boolean soundEnabled;
+    private String soundName;
+    private double soundVolume;
+    private double soundPitch;
+    private double soundPitchVariance;
+    private double soundMinRate;
+    private double soundMaxRate;
+    private double soundCurve;
+
     // Drop limits
     private boolean limitEnabled;
     private int limitDrops;
@@ -69,6 +95,7 @@ public class GeigerConfiguration {
         loadSpawnFilters();
         loadDetectionSettings();
         loadDropLimits();
+        loadSoundSettings();
         loadColorSettings();
         loadMessages();
         loadRewards();
@@ -135,6 +162,62 @@ public class GeigerConfiguration {
         twoRingsDistance = plugin.getConfig().getDouble("detection.ring-thresholds.two-rings", 300.0);
     }
     
+    // ====================================
+    // Geiger clicking sound
+    // ====================================
+    private void loadSoundSettings() {
+        soundEnabled = plugin.getConfig().getBoolean("sound.enabled", true);
+        soundName = normalizeSoundName(plugin.getConfig().getString("sound.sound", DEFAULT_SOUND));
+        soundVolume = plugin.getConfig().getDouble("sound.volume", 0.35);
+        soundPitch = plugin.getConfig().getDouble("sound.pitch", 1.7);
+        soundPitchVariance = Math.max(0.0, plugin.getConfig().getDouble("sound.pitch-variance", 0.15));
+        soundMinRate = Math.max(0.0, plugin.getConfig().getDouble("sound.min-rate", 0.5));
+        soundMaxRate = Math.max(0.0, plugin.getConfig().getDouble("sound.max-rate", 18.0));
+        soundCurve = plugin.getConfig().getDouble("sound.curve", 2.0);
+
+        // An inverted range would make the sound quieten as the player closes in
+        if (soundMaxRate < soundMinRate) {
+            plugin.getLogger().warning("sound.max-rate is below sound.min-rate - swapping them so clicks speed up near the source.");
+            double swap = soundMinRate;
+            soundMinRate = soundMaxRate;
+            soundMaxRate = swap;
+        }
+
+        // A non-positive curve would make every distance click at full rate
+        if (soundCurve <= 0.0) {
+            plugin.getLogger().warning("sound.curve must be greater than 0 - falling back to 2.0.");
+            soundCurve = 2.0;
+        }
+    }
+
+    // Accepts the sound event ID, with or without the "minecraft:" namespace.
+    // Bukkit's enum spelling (BLOCK_NOTE_BLOCK_HAT) is accepted too - it maps
+    // onto the same event once lowercased, since the enum name is the event ID
+    // with dots turned into underscores.
+    private String normalizeSoundName(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return DEFAULT_SOUND;
+        }
+
+        String name = raw.trim().toLowerCase();
+        if (name.startsWith("minecraft:")) {
+            name = name.substring("minecraft:".length());
+        }
+
+        // Enum spelling has no dots at all - rebuild the event ID from it
+        if (!name.contains(".")) {
+            String rebuilt = ENUM_TO_EVENT.get(name);
+            if (rebuilt == null) {
+                plugin.getLogger().warning("sound.sound '" + raw + "' is not a sound event ID (expected something like "
+                    + DEFAULT_SOUND + ") - falling back to " + DEFAULT_SOUND + ".");
+                return DEFAULT_SOUND;
+            }
+            return rebuilt;
+        }
+
+        return name;
+    }
+
     // ====================================
     // How many sources a single player may collect per time window
     // ====================================
@@ -273,6 +356,14 @@ public class GeigerConfiguration {
     public String getMessageFoundSource() { return messageFoundSource; }
     public String getMessageDeadGeiger() { return messageDeadGeiger; }
     public String getMessageLimitReached() { return messageLimitReached; }
+    public boolean isSoundEnabled() { return soundEnabled; }
+    public String getSoundName() { return soundName; }
+    public double getSoundVolume() { return soundVolume; }
+    public double getSoundPitch() { return soundPitch; }
+    public double getSoundPitchVariance() { return soundPitchVariance; }
+    public double getSoundMinRate() { return soundMinRate; }
+    public double getSoundMaxRate() { return soundMaxRate; }
+    public double getSoundCurve() { return soundCurve; }
     public boolean isLimitEnabled() { return limitEnabled; }
     public int getLimitDrops() { return limitDrops; }
     public long getLimitWindowMillis() { return limitWindowMillis; }

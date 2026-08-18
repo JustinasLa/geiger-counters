@@ -21,6 +21,7 @@ Hold a **Geiger Counter** item and the world starts talking back: particle rings
 | **Tiered rewards** | 6 rarity levels (Common → Mythical) with fully weighted drop chances |
 | **Self-resetting hunt** | Collecting the source relocates it to a new random spot in the search area |
 | **Consumable gameplay** | The Geiger Counter "runs out of charge" on success, becoming a **Dead Geiger Counter** |
+| **Geiger clicking** | The counter clicks faster the closer the source gets — audible signal, not just visual |
 | **Per-player drop limits** | A player may claim at most *x* drops per *y* time window, so loot stays scarce |
 | **Config-driven design** | Search area, detection ranges, particle colors, and reward pools all live in `config.yml` |
 
@@ -32,6 +33,12 @@ A repeating task checks every online player. For each player holding a Geiger Co
 2. That distance is mapped to a particle configuration — ring count (1–3) from distance thresholds, and a color interpolated along a two-stage gradient (dark purple → purple far away, purple → white up close).
 3. The rings spawn around the player as a live "signal strength" readout.
 4. Within collection distance (20 blocks by default), the source is collected automatically: a tier is rolled by weight, a random item from that tier is granted, the counter is swapped for its dead version, and the source moves to a fresh random location.
+
+### Sound
+
+The counter clicks. Distance controls the click **rate**, not the pitch — that is what a real Geiger–Müller tube does, and it keeps the audio readable as a signal on its own. Clicks are rolled per tick against a probability rather than fired on a fixed interval, so their spacing is irregular the way decay events are; evenly spaced clicks just sound like a metronome.
+
+Default is `block.note_block.hat` at 0.5 clicks/sec on the edge of detection range, ramping to 18/sec at the source. Only the holder hears it. Any sound event ID works — preview them at [minecraftsounds.com](https://minecraftsounds.com).
 
 ### Drop limits
 
@@ -66,6 +73,7 @@ src/main/java/tfmc/justin/
 ├── config/
 │   └── GeigerConfiguration.java       # config.yml loading: area, ranges, colors, rewards
 ├── handlers/
+│   ├── GeigerClickPlayer.java         # Distance → click rate, rolled per tick
 │   ├── ParticleRenderer.java          # Distance → ring count + color gradient rendering
 │   └── SourceHandler.java             # Source placement, collection, reward rolls
 ├── hooks/
@@ -136,7 +144,7 @@ classDiagram
 
 ## Installation
 
-1. Drop `geiger_counter-1.0.0.jar` into your server's `plugins/` folder
+1. Drop `geiger_counter-1.1.2.jar` into your server's `plugins/` folder
 2. Install **TLibs** (required). **MMOItems** / **ItemsAdder** are optional item sources
 3. Restart the server (or load with PlugManX)
 4. Configure `plugins/geiger_counter/config.yml` — the source spawns at a random location within the configured area
@@ -169,6 +177,7 @@ classDiagram
 | **1 ring** | Beyond 300 blocks — far |
 | **White** | Very close (0–200 blocks) |
 | **Purple → dark purple** | Far away (200–2500 blocks) |
+| **Fast clicking** | Rate rises from 0.5/sec at the edge of range to 18/sec at the source |
 
 ## Configuration
 
@@ -200,6 +209,17 @@ detection:
   ring-thresholds:
     three-rings: 100.0    # 3 rings when closer than this
     two-rings: 300.0      # 2 rings when closer than this (else 1)
+
+# Geiger clicking sound
+sound:
+  enabled: true
+  sound: block.note_block.hat   # Any sound event ID
+  volume: 0.35
+  pitch: 1.7
+  pitch-variance: 0.15          # Jitter so repeats do not sound looped
+  min-rate: 0.5                 # Clicks/sec at max detection distance
+  max-rate: 18.0                # Clicks/sec at the source (20 = one per tick)
+  curve: 2.0                    # Higher = ramps up harder near the source
 
 # Per-player drop limits
 limits:

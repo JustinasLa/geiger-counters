@@ -67,6 +67,38 @@ detection:
 
 
 # ====================================
+# Geiger clicking sound
+# Distance controls how FAST the counter clicks, not the pitch - that is what
+# a real Geiger-Muller tube does. Clicks are rolled per tick, so their spacing
+# is irregular instead of metronome-even.
+# Only the player holding the counter hears it.
+# ====================================
+sound:
+  enabled: true
+
+  # Sound event ID (see https://minecraftsounds.com to preview)
+  # Other good clicks: block.dispenser.fail, block.comparator.click
+  sound: block.note_block.hat
+
+  # 0.0 - 1.0 for a personal readout; higher carries further
+  volume: 0.35
+
+  # Base pitch (0.5 - 2.0) and how far each click may wander from it,
+  # so repeats do not sound like a loop
+  pitch: 1.7
+  pitch-variance: 0.15
+
+  # Clicks per second at max-detection-distance and at the source itself.
+  # 20 is the ceiling - one click per tick
+  min-rate: 0.5
+  max-rate: 18.0
+
+  # Higher values keep the clicking slow until the player is close,
+  # then ramp hard. 1.0 is a straight line
+  curve: 2.0
+
+
+# ====================================
 # Per-player drop limits
 # A player may collect at most <drops> sources within any <time> window.
 # The window slides: each collection frees up again exactly <time> after it
